@@ -1,3 +1,15 @@
+/*
+ * LIS3MDL.c
+ *
+ *  Created on: 29 mar. 2024
+ *      Author: mdelu
+ */
+#ifndef INC_LIS3MDL_H_
+#define INC_LIS3MDL_H_
+
+#include "stdint.h"
+#include "stm32f1xx_hal.h"
+
 /********************************
  * Variables
  ********************************/
@@ -11,7 +23,6 @@ typedef struct{
 	int16_t axis_Z;
 	int16_t temp;
 }LIS3_DATA;
-
 
 /********************************
  * Addresses
@@ -46,9 +57,11 @@ typedef struct{
 #define STATUS_ZYXDA  0b00001000
 
 /********************************
- * Definitions
+ * Funct Definitions
  ********************************/
 void LIS3MDL_config();
-void LIS3MDL_init(SPI_HandleTypeDef* spi, uint8_t add, GPIO_TypeDef *cs_port, uint16_t cs_pin);
+void LIS3MDL_init(SPI_HandleTypeDef* spi, GPIO_TypeDef *cs_port, uint16_t cs_pin);
 void LIS3MDL_Write_Reg(uint8_t reg, uint8_t value);
 LIS3_DATA LIS3MDL_Get_XYZT();
+
+#endif /* INC_LIS3MDL_H_ */

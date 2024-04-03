@@ -4,7 +4,7 @@
  *  Created on: 29 mar. 2024
  *      Author: mdelu
  */
-#import "LIS3MDL.h"
+#include "LIS3MDL.h"
 
 void LIS3MDL_init(SPI_HandleTypeDef* spi, GPIO_TypeDef *cs_port, uint16_t cs_pin){
 	hspi_magnet	   = *spi;
@@ -17,7 +17,8 @@ void LIS3MDL_config(){
 			Reg2,
 			Reg3,
 			Reg4,
-			Reg5;
+			Reg5,
+			IntReg;
 
 	Reg1 = 0x80 | 0x60 | 0x10 ; // 1111 0000 //UHP
 	Reg2 = 0x40;				// 0100 0000 //+-12gaus

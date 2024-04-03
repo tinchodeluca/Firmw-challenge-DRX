@@ -27,6 +27,8 @@
 #include "queue.h"
 #include "semphr.h"
 
+#include "LIS3MDL.h"
+#include "W25Q80.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -51,6 +53,10 @@ TIM_HandleTypeDef htim1;
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
+uint8_t recv_char;
+
+QueueHandle_t queue_magnet, queue_read_ID;
+SemaphoreHandle_t sem_tx_data, sem_get_data;
 
 /* USER CODE END PV */
 
@@ -66,79 +72,112 @@ static void MX_USART1_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+#define DATA_SIZE_STORAGE 11 //BYTES
+
 static void tsk_Flash_Write (void *pvParameters){
-	HAL_StatusTypeDef ret_state;
-	BaseType_t ret_task = pdFALSE;
+	BaseType_t _ret = pdFALSE;
+	LIS3_DATA data2write;
+	int16_t data_ID;
+
+	uint32_t ADD_Index = 0; //First entry for memory ADDRES Index
+	uint32_t ADD_Last_Entry;
+
+	W25Q_Read_data(&ADD_Last_Entry, ADD_Index, 4); //4BYTES
+
 
 	while (1){
-		if( fnc_debounce(BTN_GPIO_Port, BTN_Pin) ){
-			taskENTER_CRITICAL();
+		HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);//test
 
-			taskEXIT_CRITICAL();
-			UNUSED(ret_state);
-			UNUSED(ret_task);
+		if(1048000>(ADD_Last_Entry + DATA_SIZE_STORAGE)){
+			_ret = xQueueReceive(queue_magnet, &data2write, portMAX_DELAY);
+			WriteData = data2write;
+			W25Q_Write_data(WriteData, ADD_Last_Entry + DATA_SIZE_STORAGE, DATA_SIZE_STORAGE);
+			WriteData = ADD_Last_Entry + DATA_SIZE_STORAGE;
+			W25Q_Write_data(WriteData, ADD_Index , 4);
 		}
+
+		UNUSED(_ret);
 	}
 	vTaskDelete( NULL ); //SAFETY
 }
 
 static void tsk_Flash_Read (void *pvParameters){
 	HAL_StatusTypeDef ret_state;
-	BaseType_t ret_task = pdFALSE;
+	BaseType_t _ret = pdFALSE;
 
 	while (1){
-		if( fnc_debounce(BTN_GPIO_Port, BTN_Pin) ){
-			taskENTER_CRITICAL();
+		HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);//test
+//		taskENTER_CRITICAL();
 
-			taskEXIT_CRITICAL();
-			UNUSED(ret_state);
-			UNUSED(ret_task);
-		}
+//		taskEXIT_CRITICAL();
+		UNUSED(ret_state);
+		UNUSED(_ret);
 	}
 	vTaskDelete( NULL ); //SAFETY
 }
 
 static void tsk_Magnet (void *pvParameters){
-	HAL_StatusTypeDef ret_state;
-	BaseType_t ret_task = pdFALSE;
+	BaseType_t _ret = pdFALSE;
+	LIS3_DATA  DATA;
+
+	LIS3MDL_config();
 
 	while (1){
-		if( fnc_debounce(BTN_GPIO_Port, BTN_Pin) ){
-			taskENTER_CRITICAL();
+		xSemaphoreTake(sem_get_data, portMAX_DELAY);
 
-			taskEXIT_CRITICAL();
-			UNUSED(ret_state);
-			UNUSED(ret_task);
-		}
+		HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);//test
+
+		DATA = LIS3MDL_Get_XYZT();
+		_ret = xQueueSend(queue_magnet, &DATA, portMAX_DELAY);
+
+		UNUSED(_ret);
 	}
 	vTaskDelete( NULL ); //SAFETY
 }
 
-uint8_t btn_release (GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin){
-	if ( !HAL_GPIO_ReadPin(GPIOx, GPIO_Pin) ){
-		HAL_Delay(30); //debounce time
-		if( !HAL_GPIO_ReadPin(GPIOx, GPIO_Pin) ){
-			while(!HAL_GPIO_ReadPin(GPIOx, GPIO_Pin)); //While press down
-			return 1; //after release
-		}
-	}
-	return 0;
-}
+//uint8_t btn_release (GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin){
+//	if ( !HAL_GPIO_ReadPin(GPIOx, GPIO_Pin) ){
+//		HAL_Delay(30); //debounce time
+//		if( !HAL_GPIO_ReadPin(GPIOx, GPIO_Pin) ){
+//			while(!HAL_GPIO_ReadPin(GPIOx, GPIO_Pin)); //While press down
+//			return 1; //after release
+//		}
+//	}
+//	return 0;
+//}
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
+	BaseType_t pxHigherPriorityTaskWoken = pdFALSE, ret_queue;
+
 	if( USART1 == huart->Instance){
-		BaseType_t pxHigherPriorityTaskWoken = pdFALSE, ret_queue;
+		HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);//test
 
-//		ret_queue = xQueueSendFromISR(, &, pxHigherPriorityTaskWoken);
-
+		ret_queue = xQueueSendFromISR(queue_read_ID, &recv_char, pxHigherPriorityTaskWoken);
 		portEND_SWITCHING_ISR(pxHigherPriorityTaskWoken);
-	UNUSED(ret_queue);
+		UNUSED(ret_queue);
 	}
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
-}
+	BaseType_t pxHigherPriorityTaskWoken = pdFALSE, ret_queue;
+	int16_t get_last = 0;
 
+	HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);//test
+
+	ret_queue = xQueueSendFromISR(queue_read_ID, &get_last, pxHigherPriorityTaskWoken);
+	portEND_SWITCHING_ISR(pxHigherPriorityTaskWoken);
+	UNUSED(ret_queue);
+}
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
+	BaseType_t pxHigherPriorityTaskWoken = pdFALSE;
+
+	if(htim->Instance == TIM1){
+		HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);//test
+
+		xSemaphoreGiveFromISR(sem_get_data, pxHigherPriorityTaskWoken);
+		portEND_SWITCHING_ISR(pxHigherPriorityTaskWoken);
+	}
+}
 /* USER CODE END 0 */
 
 /**
@@ -148,7 +187,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-  int SENSOR_DATA; // Una esructura de X,Y,Z,temp a definir en el driver del sensor
 
   /* USER CODE END 1 */
 
@@ -158,7 +196,12 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-  queue_magnet = xQueueCreate(1, sizeof(SENSOR_DATA));
+
+  queue_magnet   = xQueueCreate(1, sizeof(LIS3_DATA));
+  queue_read_ID = xQueueCreate(1, sizeof(int16_t));
+
+  vSemaphoreCreateBinary(sem_tx_data);
+  vSemaphoreCreateBinary(sem_get_data);
 
   /* USER CODE END Init */
 
@@ -175,27 +218,39 @@ int main(void)
   MX_TIM1_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-  BaseType_t ret_task = pdFALSE;
 
-  ret_task = xTaskCreate(tsk_Flash_Write,
+  //Init sensor
+  LIS3MDL_init(&hspi1, CS_GIROS_GPIO_Port, CS_GIROS_Pin);
+  //Init flash mem
+
+  //Int.
+  HAL_StatusTypeDef ret_state;
+  BaseType_t _ret = pdFALSE;
+
+  ret_state = HAL_TIM_Base_Start_IT(&htim1);//TIMER1 Interrupt call
+  ret_state = HAL_UART_Receive_IT(&huart1, &recv_char, 1); //UART1 Interrupt call
+//TODO: check the interrupts starts
+  UNUSED(ret_state);
+
+  _ret = xTaskCreate(tsk_Flash_Write,
 						"",
 						configMINIMAL_STACK_SIZE,
 						NULL,
 						tskIDLE_PRIORITY + 2,
 						NULL);
 
-  if (pdFALSE == ret_task){
+  if (pdFALSE == _ret){
 //	  TODO: error
   }
 
-  ret_task = xTaskCreate(tsk_Magnet,
+  _ret = xTaskCreate(tsk_Magnet,
 						"",
 						configMINIMAL_STACK_SIZE,
 						NULL,
 						tskIDLE_PRIORITY + 1,
 						NULL);
 
-  if (pdFALSE == ret_task){
+  if (pdFALSE == _ret){
 //	  TODO: error
   }
 
@@ -274,7 +329,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -308,7 +363,7 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 0;
+  htim1.Init.Prescaler = 7200-1;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim1.Init.Period = 65535;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
