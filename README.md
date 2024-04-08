@@ -55,10 +55,8 @@ The Fast Read command is used to operate at maximum frequency.
 
 * The write standby function (**W25Q80_Is_Busy**) blocks the process until the corresponding register does not change state.
 
->>
-
-    Datasheet flash memory configurations:
-
+* Datasheet flash memory configurations:*
+  
     * ***8.2** Command Table Page 18*
     
     * ***8.5.7** Fast Read (0x0Bh) Page 26*
