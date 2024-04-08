@@ -195,6 +195,11 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 				W25Q80_Full_Erase();
 				W25Q_Write_data(&FLASH_BASE_DATA, ADD_Index, 4);
 			}
+			else{
+				char msg[] = "ERROR\n";
+				HAL_UART_Transmit(&huart1, (uint8_t)&msg, 20, HAL_MAX_DELAY);
+
+			}
 		}
 	}
 }

@@ -76,7 +76,7 @@ HAL_StatusTypeDef W25Q_Write_data( uint8_t *WriteData, uint32_t ADD , int16_t SI
 			else
 				bytes_rem = (256 - OFFSET);
 
-			for (uint8_t i=4; i<bytes_rem; i++)
+			for (uint8_t i=4; i<(bytes_rem+4); i++)
 				txData[i] = WriteData[i -4 + Pointer_DATA]; //data to be written and keeping a pointer to the remaining
 
 			Pointer_DATA += bytes_rem; //Now the pointer is at the end of the ones in queue
