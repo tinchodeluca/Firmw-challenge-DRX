@@ -12,12 +12,12 @@ Since both devices had SPI communication bus, the solution was made considering 
 For the button, it was assumed that debounce and noise suppression were developed in hardware.
 
 ***
-For ***uC*** a STM32F103C8 was selected and the ports configured as the next image
-***
+For **uC** a STM32F103C8 was selected and the ports configured as the next image
+
 ![Ports configuration in uC](./Multimedia/STM32_PORTS.png)
 ***
-The Real Time Operative Sistem that was selected was ***FreeRTOS Kernel V10.5.1 ***.
-The Firmware was compile in *** STM32CubeIDE Version: 1.6.1 Build: 9958_20210326_1446 (UTC) ***
+The Real Time Operative Sistem that was selected was **FreeRTOS Kernel V10.5.1 **.
+The Firmware was compile in **STM32CubeIDE Version: 1.6.1 Build: 9958_20210326_1446 (UTC) **
 ****
 ## Drivers
 
@@ -74,6 +74,7 @@ The tasks are implemented by priority and it was defined to use two of them:
 ###  Event Synchronization
 * A semaphore is used to release the task that gets the sensor data, this semaphore is released by an interrupt routine every second.
 * A queue is used to send the ID required by the uart to the corresponding task reading from the flash memory.
+  
 ![Code diagram](./Multimedia/Code_diagram.png)
 
 ***
