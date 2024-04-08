@@ -27,17 +27,33 @@
 #include "queue.h"
 #include "semphr.h"
 
+#include "strings.h"
+
 #include "LIS3MDL.h"
 #include "W25Q80.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+typedef struct {
+	int32_t ID;
+	int16_t axis_X;
+	int16_t axis_Y;
+	int16_t axis_Z;
+	int16_t temp;
+} __attribute__((aligned(16))) DATA_STORED; //12 Adding 4bytes to align it to 16(32) to make faster operations
 
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define DATA_SIZE_STORAGE 16 //BYTES
+#define FLASH_MAX_BYTES 1048576
+#define FLASH_MAX_DATA (FLASH_MAX_BYTES -256 -DATA_SIZE_STORAGE)/DATA_SIZE_STORAGE //Minus the first page(256pytes)- data size
+// We´ll reserve the first page for Address index and other possible records (firmware version-features)
+// This will leave 65,280 entries of data (ID+AXIS XYZ + TEMP)
+#define FLASH_BASE_DATA 0x100
+#define FLASH_CLEAR 0x10000 //After the 65,280 bytes of data length that the index can take
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -53,10 +69,12 @@ TIM_HandleTypeDef htim1;
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
-uint8_t recv_char;
+QueueHandle_t queue_read_ID;
+SemaphoreHandle_t sem_get_data;
 
-QueueHandle_t queue_magnet, queue_read_ID;
-SemaphoreHandle_t sem_tx_data, sem_get_data;
+uint8_t recv_uart;
+DATA_STORED Data2Write; //STORE THE LAST DATA FROM THE SENSOR
+const uint32_t Index_Add = 0; //First entry for memory ADDRES Index
 
 /* USER CODE END PV */
 
@@ -67,35 +85,67 @@ static void MX_SPI1_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
+uint32_t GET_addres_from_id(uint32_t ID);
+uint32_t GET_id_from_addres(uint32_t ADD);
+
+static void tsk_Store_Data(void *pvParameters);
+static void tsk_Flash_Read(void *pvParameters);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-#define DATA_SIZE_STORAGE 11 //BYTES
-
-static void tsk_Flash_Write (void *pvParameters){
+/*Functions
+ *
+ */
+uint32_t GET_addres_from_id(uint32_t ID){
+	return FLASH_BASE_DATA + (ID-1)*DATA_SIZE_STORAGE;
+}
+uint32_t GET_id_from_addres(uint32_t ADD){
+	return ((ADD>>8 -1)*16 + ( ADD & 0xFF )/16 +1);
+}
+/*Tasks
+ *
+ */
+static void tsk_Store_Data (void *pvParameters){
 	BaseType_t _ret = pdFALSE;
-	LIS3_DATA data2write;
-	int16_t data_ID;
+	LIS3_DATA DataSensored;
 
-	uint32_t ADD_Index = 0; //First entry for memory ADDRES Index
-	uint32_t ADD_Last_Entry;
+	uint32_t ADD_Last_Entry; //Address of last entry
 
-	W25Q_Read_data(&ADD_Last_Entry, ADD_Index, 4); //4BYTES
+	W25Q_Read_data((uint8_t *)&ADD_Last_Entry, Index_Add, 4); //4BYTES
 
+	//If the flash memory has been erased and not properly initialized
+	if (0xFFFFFFFF == ADD_Last_Entry){
+		ADD_Last_Entry = FLASH_BASE_DATA; //It was erased but the index wasn't reseted
+	}
 
 	while (1){
 		HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);//test
+		xSemaphoreTake(sem_get_data, portMAX_DELAY); //Unblock each 1s
+		DataSensored = LIS3MDL_Get_XYZT();
 
-		if(1048000>(ADD_Last_Entry + DATA_SIZE_STORAGE)){
-			_ret = xQueueReceive(queue_magnet, &data2write, portMAX_DELAY);
-			WriteData = data2write;
-			W25Q_Write_data(WriteData, ADD_Last_Entry + DATA_SIZE_STORAGE, DATA_SIZE_STORAGE);
-			WriteData = ADD_Last_Entry + DATA_SIZE_STORAGE;
-			W25Q_Write_data(WriteData, ADD_Index , 4);
+		if( FLASH_MAX_DATA > (ADD_Last_Entry + DATA_SIZE_STORAGE) ){
+			taskENTER_CRITICAL();
+			ADD_Last_Entry += DATA_SIZE_STORAGE;//Add 16 to address
+
+			Data2Write.axis_X = DataSensored.axis_X;
+			Data2Write.axis_Y = DataSensored.axis_Y;
+			Data2Write.axis_Z = DataSensored.axis_Z;
+			Data2Write.temp   = DataSensored.temp;
+/*							|| page #1 ->256 -> (1-1)*16 =0 || Offset 0x0000FF/16 EACH ENTRY	*/
+//			Data2Write.ID     = (ADD_Last_Entry>>8 -1)*16 + ( ADD_Last_Entry&0xFF )/16 +1;
+			Data2Write.ID     = GET_id_from_addres(ADD_Last_Entry);
+
+			W25Q_Write_data((uint8_t *)&Data2Write, ADD_Last_Entry, DATA_SIZE_STORAGE);
+			W25Q_Write_data((uint8_t *)&ADD_Last_Entry, Index_Add , 4); //Store the address of last entry into the Index
+
+			taskEXIT_CRITICAL();
 		}
-
+		else{
+			//TODO: MSG "NO GRABO"
+			//TODO: RESET ID & Address of last entry?
+		}
 		UNUSED(_ret);
 	}
 	vTaskDelete( NULL ); //SAFETY
@@ -104,77 +154,67 @@ static void tsk_Flash_Write (void *pvParameters){
 static void tsk_Flash_Read (void *pvParameters){
 	HAL_StatusTypeDef ret_state;
 	BaseType_t _ret = pdFALSE;
+	uint32_t read_ID;
+	DATA_STORED DATA;
 
 	while (1){
 		HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);//test
-//		taskENTER_CRITICAL();
+		xQueueReceive(queue_read_ID, &read_ID, HAL_MAX_DELAY);
 
-//		taskEXIT_CRITICAL();
+		taskENTER_CRITICAL();
+		ret_state = W25Q_Read_data((uint8_t *)&DATA, GET_addres_from_id(read_ID), DATA_SIZE_STORAGE);
+		//TODO: Check if the ID that was retrieved is the same as the requested
+		ret_state = HAL_UART_Transmit(&huart1, (uint8_t *)&DATA, 12, HAL_MAX_DELAY);
+		taskEXIT_CRITICAL();
+
 		UNUSED(ret_state);
 		UNUSED(_ret);
 	}
 	vTaskDelete( NULL ); //SAFETY
 }
 
-static void tsk_Magnet (void *pvParameters){
-	BaseType_t _ret = pdFALSE;
-	LIS3_DATA  DATA;
-
-	LIS3MDL_config();
-
-	while (1){
-		xSemaphoreTake(sem_get_data, portMAX_DELAY);
-
-		HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);//test
-
-		DATA = LIS3MDL_Get_XYZT();
-		_ret = xQueueSend(queue_magnet, &DATA, portMAX_DELAY);
-
-		UNUSED(_ret);
-	}
-	vTaskDelete( NULL ); //SAFETY
-}
-
-//uint8_t btn_release (GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin){
-//	if ( !HAL_GPIO_ReadPin(GPIOx, GPIO_Pin) ){
-//		HAL_Delay(30); //debounce time
-//		if( !HAL_GPIO_ReadPin(GPIOx, GPIO_Pin) ){
-//			while(!HAL_GPIO_ReadPin(GPIOx, GPIO_Pin)); //While press down
-//			return 1; //after release
-//		}
-//	}
-//	return 0;
-//}
-
+//UART INTERRUPT
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 	BaseType_t pxHigherPriorityTaskWoken = pdFALSE, ret_queue;
 
 	if( USART1 == huart->Instance){
 		HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);//test
 
-		ret_queue = xQueueSendFromISR(queue_read_ID, &recv_char, pxHigherPriorityTaskWoken);
-		portEND_SWITCHING_ISR(pxHigherPriorityTaskWoken);
-		UNUSED(ret_queue);
+		if ( (0 < recv_uart) && (recv_uart <= Data2Write.ID) && ( recv_uart < FLASH_MAX_DATA) ){
+			ret_queue = xQueueSendFromISR(queue_read_ID, &recv_uart, &pxHigherPriorityTaskWoken);
+			portEND_SWITCHING_ISR(pxHigherPriorityTaskWoken);
+			UNUSED(ret_queue);
+		}
+		else{
+			if( recv_uart < FLASH_MAX_DATA){ //Still in the valid range of index
+				char msg[] = "ERROR: ID NOT FOUND\n";
+				HAL_UART_Transmit(&huart1, (uint8_t)&msg, 20, HAL_MAX_DELAY);
+			}
+// Clear instructions from UART
+			if(recv_uart == FLASH_CLEAR){
+				W25Q80_Full_Erase();
+				W25Q_Write_data(&FLASH_BASE_DATA, ADD_Index, 4);
+			}
+		}
 	}
 }
-
+// BUTON INTERRUPT
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
-	BaseType_t pxHigherPriorityTaskWoken = pdFALSE, ret_queue;
-	int16_t get_last = 0;
+	HAL_StatusTypeDef ret_state;
 
 	HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);//test
-
-	ret_queue = xQueueSendFromISR(queue_read_ID, &get_last, pxHigherPriorityTaskWoken);
-	portEND_SWITCHING_ISR(pxHigherPriorityTaskWoken);
-	UNUSED(ret_queue);
+	//We send immediately the last data from the sensor instead of reading the flash memory
+	ret_state = HAL_UART_Transmit_IT(&huart1, (uint8_t *)&Data2Write, 12);//We will send 12 bytes not the 16 aligned
+	UNUSED(ret_state);
 }
+// TIMER INTERRUPT
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 	BaseType_t pxHigherPriorityTaskWoken = pdFALSE;
 
 	if(htim->Instance == TIM1){
 		HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);//test
 
-		xSemaphoreGiveFromISR(sem_get_data, pxHigherPriorityTaskWoken);
+		xSemaphoreGiveFromISR(sem_get_data, &pxHigherPriorityTaskWoken);
 		portEND_SWITCHING_ISR(pxHigherPriorityTaskWoken);
 	}
 }
@@ -197,10 +237,8 @@ int main(void)
 
   /* USER CODE BEGIN Init */
 
-  queue_magnet   = xQueueCreate(1, sizeof(LIS3_DATA));
-  queue_read_ID = xQueueCreate(1, sizeof(int16_t));
+  queue_read_ID = xQueueCreate(1, sizeof(recv_uart));
 
-  vSemaphoreCreateBinary(sem_tx_data);
   vSemaphoreCreateBinary(sem_get_data);
 
   /* USER CODE END Init */
@@ -221,18 +259,19 @@ int main(void)
 
   //Init sensor
   LIS3MDL_init(&hspi1, CS_GIROS_GPIO_Port, CS_GIROS_Pin);
+  LIS3MDL_config();
   //Init flash mem
-
+  W25Q_Init(&hspi1,CS_GIROS_GPIO_Port, CS_GIROS_Pin);
   //Int.
   HAL_StatusTypeDef ret_state;
   BaseType_t _ret = pdFALSE;
 
   ret_state = HAL_TIM_Base_Start_IT(&htim1);//TIMER1 Interrupt call
-  ret_state = HAL_UART_Receive_IT(&huart1, &recv_char, 1); //UART1 Interrupt call
+  ret_state = HAL_UART_Receive_IT(&huart1, &recv_uart, 4); //UART1 Interrupt call - 4bytes
 //TODO: check the interrupts starts
   UNUSED(ret_state);
 
-  _ret = xTaskCreate(tsk_Flash_Write,
+  _ret = xTaskCreate(tsk_Store_Data,
 						"",
 						configMINIMAL_STACK_SIZE,
 						NULL,
@@ -242,8 +281,7 @@ int main(void)
   if (pdFALSE == _ret){
 //	  TODO: error
   }
-
-  _ret = xTaskCreate(tsk_Magnet,
+  _ret = xTaskCreate(tsk_Flash_Read,
 						"",
 						configMINIMAL_STACK_SIZE,
 						NULL,

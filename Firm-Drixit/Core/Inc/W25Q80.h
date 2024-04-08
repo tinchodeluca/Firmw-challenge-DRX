@@ -29,6 +29,8 @@ uint16_t flash_CH_PIN;
 /*
  *  Functions definitions
  */
+void W25Q_Init(SPI_HandleTypeDef* spi, GPIO_TypeDef *cs_port, uint16_t cs_pin);
+
 HAL_StatusTypeDef W25Q_Read_data (uint8_t *ReadData , uint32_t ADD , int16_t SIZE);
 HAL_StatusTypeDef W25Q_Write_data(uint8_t *WriteData, uint32_t ADD , int16_t SIZE);
 

@@ -12,6 +12,11 @@
  *  W25Q_Get_data will get 10Bytes with FASTREAD method
  *  total 1,048,576 >> 10bytes/data --> 104.857 data entries ->32bits to select each
  */ //87,381
+void W25Q_Init(SPI_HandleTypeDef* spi, GPIO_TypeDef *cs_port, uint16_t cs_pin){
+	hspi_flash    = *spi;
+	flash_CH_PORT = *cs_port;
+	flash_CH_PIN  = cs_pin;
+}
 
 HAL_StatusTypeDef W25Q_Read_data(uint8_t *ReadData, uint32_t ADD , int16_t SIZE) {
 	HAL_StatusTypeDef _spi_state;
