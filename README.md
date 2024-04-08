@@ -45,9 +45,7 @@ It transmits the command to perform the "FAST READ" and the memory address (send
 The Fast Read command is used to operate at maximum frequency.
 
 * The data write function (**W25Q_Write_data**) receives as parameters the pointer to the variable where the data is, the memory address to be read and the data size in bytes to be read.
-
- From the address we get the page and the address within the page. Since we can store a maximum of one page, we have to iterate if we want to write more than 256 bytes. So we loop as many times as we need to write (pages to complete).
- 
+ * From the address we get the page and the address within the page. Since we can store a maximum of one page, we have to iterate if we want to write more than 256 bytes. So we loop as many times as we need to write (pages to complete).
   * The address of each iteration is "Dir Base + Offset + ITERATION".
   * The remaining bytes are appended by looping a data train.
   * And the data train (remaining bytes) of each page are written in a single operation. 
