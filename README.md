@@ -12,12 +12,13 @@ Since both devices had SPI communication bus, the solution was made considering 
 For the button, it was assumed that debounce and noise suppression were developed in hardware.
 
 ***
-For * **uC** * a STM32F103C8 was selected and the ports configured as the next image
-***
+For **uC** a STM32F103C8 was selected and the ports configured as the following image:
+
 ![Ports configuration in uC](./Multimedia/STM32_PORTS.png)
 ***
-The Real Time Operative Sistem that was selected was * **FreeRTOS Kernel V10.5.1 ** *.
-The Firmware was compile in * ** STM32CubeIDE Version: 1.6.1 Build: 9958_20210326_1446 (UTC) ** *
+The Real Time Operative Sistem that was selected was **FreeRTOS Kernel V10.5.1 **.
+
+The Firmware was compile in **STM32CubeIDE Version: 1.6.1 Build: 9958_20210326_1446 (UTC) **
 ****
 ## Drivers
 
@@ -67,13 +68,16 @@ At the end of each page that was written, the offset is reset and the remaining 
 
 The tasks are implemented by priority and it was defined to use two of them:
 * The task 'tsk_Flash_Read'
-*Task to read the ids stored on the flash card and send them via UART.*
+  
+  *Task to read the ids stored on the flash card and send them via UART.*
 
 * The task 'tsk_Store_Data'
-*Task to receive data and store it to the flash memory.*
+  
+  *Task to receive data and store it to the flash memory.*
 ###  Event Synchronization
 * A semaphore is used to release the task that gets the sensor data, this semaphore is released by an interrupt routine every second.
 * A queue is used to send the ID required by the uart to the corresponding task reading from the flash memory.
+  
 ![Code diagram](./Multimedia/Code_diagram.png)
 
 ***
@@ -97,3 +101,11 @@ In this way, 65280 structures can be stored, leaving 18 hours of useful memory.
 #### Auxiliary function
 
 There are helper functions implemented to translate memory address to ID and vice versa in order to make the code simpler.
+
+## Future implementations 
+
+Future implementations will be, the flash memory has instructions for write protection control and status and power down they were not implemented in this version.
+
+The magnetic sensor also has ID register, low power and self test. Instructions that can be usfull in the future.
+
+Also the button, it can be implemented in a seperate task to poll it. In this way it can have several behaviors, it can change the response depending on how long it is pressed.
