@@ -35,7 +35,7 @@ The initialization function (**LIS3MDL_init**) takes as parameters the SPI handl
 ### W25Q80
 
 The initialization, read and write data functions have been developed. In addition, the device 
-needed a function both before and after the write/erase to disable it. 
+needed a function both before and after the write/erase to change the state of it. 
 Also a function to check if it was busy and a full flash erase function were included. 
 
 * The initialization function (**W25Q_Init**) takes as parameters the SPI handler as well as the port and pin to select the device.
@@ -66,12 +66,14 @@ At the end of each page that was written, the offset is reset and the remaining 
 ****
 ## Main Firmware
 
-The tasks are implemented by priority and it was defined to use two of them:
+The tasks were implemented by priority and it was defined to use two of them:
 * The task 'tsk_Flash_Read'
-*Task to read the ids stored on the flash card and send them via UART.*
+  
+  *Task to read the ids stored on the flash card and send them via UART.*
 
 * The task 'tsk_Store_Data'
-*Task to receive data and store it to the flash memory.*
+  
+  *Task to receive data and store it to the flash memory.*
 ###  Event Synchronization
 * A semaphore is used to release the task that gets the sensor data, this semaphore is released by an interrupt routine every second.
 * A queue is used to send the ID required by the uart to the corresponding task reading from the flash memory.
