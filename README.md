@@ -46,7 +46,8 @@ The Fast Read command is used to operate at maximum frequency.
 
 * The data write function (**W25Q_Write_data**) receives as parameters the pointer to the variable where the data is, the memory address to be read and the data size in bytes to be read.
 
-From the address we get the page and the address within the page. Since we can store a maximum of one page, we have to iterate if we want to write more than 256 bytes. So we loop as many times as we need to write (pages to complete). 
+From the address we get the page and the address within the page. Since we can store a maximum of one page, we have to iterate if we want to write more than 256 bytes. So we loop as many times as we need to write (pages to complete).
+
 The address of each iteration is "Dir Base + Offset + ITERATION".
 The remaining bytes are appended by looping a data train.
 And the remaining bytes of each page are written in a single operation. 
@@ -57,11 +58,11 @@ At the end of each page that was written, the offset is reset and the remaining 
 
 * The write standby function (**W25Q80_Is_Busy**) blocks the process until the corresponding register does not change state.
 
-*Datasheet flash memory configurations:*
-
-* ***8.2** Command Table Page 18*
-
-* ***8.5.7** Fast Read (0x0Bh) Page 26*
+  **Datasheet flash memory configurations:*
+  
+    * ***8.2** Command Table Page 18*
+    
+    * ***8.5.7** Fast Read (0x0Bh) Page 26*
 
 ****
 ## Main Firmware
