@@ -16,9 +16,9 @@ For **uC** a STM32F103C8 was selected and the ports configured as the following 
 
 ![Ports configuration in uC](./Multimedia/STM32_PORTS.png)
 ***
-The Real Time Operative Sistem that was selected was **FreeRTOS Kernel V10.5.1 **.
+The Real Time Operative Sistem that was selected was FreeRTOS Kernel V10.5.1.
 
-The Firmware was compile in **STM32CubeIDE Version: 1.6.1 Build: 9958_20210326_1446 (UTC) **
+The Firmware was compile in STM32CubeIDE Version: 1.6.1 Build: 9958_20210326_1446 (UTC).
 ****
 ## Drivers
 
