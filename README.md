@@ -12,7 +12,7 @@ Since both devices had SPI communication bus, the solution was made considering 
 For the button, it was assumed that debounce and noise suppression were developed in hardware.
 
 ***
-For **uC** a STM32F103C8 was selected and the ports configured as the next image
+For **uC** a STM32F103C8 was selected and the ports configured as the following image:
 
 ![Ports configuration in uC](./Multimedia/STM32_PORTS.png)
 ***
