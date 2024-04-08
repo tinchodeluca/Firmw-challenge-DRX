@@ -1,4 +1,5 @@
-# Drixit Technologies - Firmware Challenge >>**REV.01**DATE: 09/04/2024
+# Drixit Technologies - Firmware Challenge 
+>>**REV.01**DATE: 09/04/2024
 
 The firmware in this repository was made for the requirements you can find in the following [LINK](./Instructions/Firmware%20Engineer%20-%20Ejercicio.pdf)
 
