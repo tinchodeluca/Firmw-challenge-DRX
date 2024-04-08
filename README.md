@@ -104,8 +104,10 @@ There are helper functions implemented to translate memory address to ID and vic
 
 ## Future implementations 
 
-Future implementations will be, the flash memory has instructions for write protection control and status and power down they were not implemented in this version.
+Future implementations that can be made:
 
-The magnetic sensor also has ID register, low power and self test. Instructions that can be usfull in the future.
+* The flash memory has instructions for write protection control and status and power down they were not implemented in this version.
 
-Also the button, it can be implemented in a seperate task to poll it. In this way it can have several behaviors, it can change the response depending on how long it is pressed.
+* The magnetic sensor also has ID register, low power and self test. Instructions that can be usfull in the future.
+
+* Also the button, it can be implemented in a seperate task to poll it. In this way it can have several behaviors, it can change the response depending on how long it is pressed. 
