@@ -7,11 +7,6 @@
 
 #include "W25Q80.h"
 
-/*
- *  (ID + X + Y + Z + TEMP )* 2 BYTES = 10bytes
- *  W25Q_Get_data will get 10Bytes with FASTREAD method
- *  total 1,048,576 >> 10bytes/data --> 104.857 data entries ->32bits to select each
- */ //87,381
 void W25Q_Init(SPI_HandleTypeDef* spi, GPIO_TypeDef *cs_port, uint16_t cs_pin){
 	hspi_flash    = *spi;
 	flash_CH_PORT = *cs_port;
