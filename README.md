@@ -2,23 +2,19 @@
 
 The firmware in this repository was made for the requirements you can find in the following [LINK](./Instructions/Firmware%20Engineer%20-%20Ejercicio.pdf)
 
-***
-It was requested to create the corresponding drivers for a flash memory and a magnetic sensor.
-Based on the [Datasheets](./Datasheets) basic versions of the required drivers were developed.
-***
+## Overview
+The challenge required the creation of drivers for a flash memory and a magnetic sensor. Basic versions of these drivers were developed based on the datasheets provided in the [Datasheets](./Datasheets) directory.
+
 ## Considerations
-Since both devices had SPI communication bus, the solution was made considering both of them connected in this bus, and the corresponding ports for selection. 
-
-For the button, it was assumed that debounce and noise suppression were developed in hardware.
-
-For **uC** a STM32F103C8 was selected and the ports configured as the following image:
+- Both devices communicate via SPI, so the solution assumes they are connected to the same bus, with corresponding ports for selection.
+- Hardware debounce and noise suppression were assumed for the button.
+- The microcontroller used is an STM32F103C8 with ports configured as depicted in the following image:
 
 ![Ports configuration in uC](./Multimedia/STM32_PORTS.png)
 
-The Real Time Operative Sistem that was selected was **FreeRTOS Kernel V10.5.1 **.
+- FreeRTOS Kernel V10.5.1 was selected as the Real-Time Operating System.
+- Firmware was compiled using STM32CubeIDE Version: 1.6.1 Build: 9958_20210326_1446 (UTC).
 
-The Firmware was compile in **STM32CubeIDE Version: 1.6.1 Build: 9958_20210326_1446 (UTC) **
-****
 ## Drivers
 
 ### LIS3MDL
