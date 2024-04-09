@@ -87,10 +87,10 @@ When the external interruption is performed (by the user clicking a button), the
 
 ***
 #### Writing the flash memory
-For the flash memory, the index of the last stored data is stored in the first position.
-And the first page (256byte) remains available for future configurations (firmware version, configurations...).
+The index address of the last data is stored in the first position (0x00000000).
+And the enterie first page (256 bytes) remains available for future configurations (firmware version, configurations...).
 
-Data structures of 12byte are stored aligned to 16byte for faster operations. This implys the loss of 4 bytes (per structure) in memory but helps standard writes to each page, leaving 16 data structures per page. 
+Data structure (ID + X + Y + Z + TEMP ) has a size of 12 bytes, but they are stored aligned and handle like 16 bytes for faster operations. This implys the loss of 4 bytes (per structure) in memory but helps standard writes to each page, leaving 16 data structures per page. 
 In this way, 65280 structures can be stored, leaving 18 hours of useful memory.
 
 #### Auxiliary function
